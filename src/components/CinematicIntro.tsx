@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { motion, AnimatePresence } from 'motion/react';
 import { detectSoftwareGl, setupStudioEnvironment } from '../utils/threeHelpers';
 import { sound } from '../utils/soundEffects';
-import { Volume2, VolumeX, ArrowRight } from 'lucide-react';
+import { Volume2, VolumeX, ArrowRight, Sparkles } from 'lucide-react';
 
 interface CinematicIntroProps {
   onComplete: () => void;
@@ -11,7 +11,7 @@ interface CinematicIntroProps {
 
 export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [sceneStage, setSceneStage] = useState<number>(1); // 1: Void, 2: Motion, 3: 3D Reveal, 4: Brand Reveal, 5: Transition
+  const [sceneStage, setSceneStage] = useState<number>(1);
   const [progress, setProgress] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(sound.getMuted());
 
@@ -24,11 +24,11 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
     const height = container.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xFDFDFE);
-    scene.fog = new THREE.FogExp2(0xFDFDFE, 0.04);
+    scene.background = new THREE.Color(0xFAFAFC);
+    scene.fog = new THREE.FogExp2(0xFAFAFC, 0.04);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, 14);
+    camera.position.set(0, 0, 13);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: !isSoftware,
@@ -39,49 +39,49 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
     renderer.setPixelRatio(isSoftware ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
     setupStudioEnvironment(renderer, scene);
 
-    // Studio Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    // Studio Lighting for Black/Purple/White AnK Comic Aesthetic
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0x7C3AED, 2.5); // electric violet
-    keyLight.position.set(5, 8, 7);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.8);
+    keyLight.position.set(5, 7, 7);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x06B6D4, 2.0); // cyan fill
-    fillLight.position.set(-6, -4, 5);
-    scene.add(fillLight);
+    const purpleKey = new THREE.PointLight(0xA855F7, 6.0, 18); // Electric purple light
+    purpleKey.position.set(-4, 3, 4);
+    scene.add(purpleKey);
 
-    const rimLight = new THREE.PointLight(0xF59E0B, 3.0, 20); // warm accent
-    rimLight.position.set(0, 6, -5);
-    scene.add(rimLight);
+    const cyanRim = new THREE.PointLight(0x06B6D4, 3.5, 15);
+    cyanRim.position.set(4, -3, 3);
+    scene.add(cyanRim);
 
-    // Group for floating scene elements
+    // Group for intro elements
     const introGroup = new THREE.Group();
     scene.add(introGroup);
 
-    // 1. Floating particles
-    const particleCount = isSoftware ? 80 : 220;
+    // 1. Floating Particles & Ink Debris in 3D
+    const particleCount = isSoftware ? 60 : 180;
     const particleGeo = new THREE.BufferGeometry();
     const posArray = new Float32Array(particleCount * 3);
     const colorArray = new Float32Array(particleCount * 3);
 
     const palette = [
-      new THREE.Color(0x7C3AED), // violet
-      new THREE.Color(0x3B82F6), // electric blue
-      new THREE.Color(0x06B6D4), // cyan
-      new THREE.Color(0xF59E0B), // subtle warm orange
-      new THREE.Color(0xEC4899), // magenta
+      new THREE.Color(0x09090B), // Ink black
+      new THREE.Color(0x7C3AED), // Violet
+      new THREE.Color(0xA855F7), // Purple
+      new THREE.Color(0x06B6D4), // Cyan
+      new THREE.Color(0x18181B), // Charcoal
     ];
 
     for (let i = 0; i < particleCount; i++) {
-      posArray[i * 3] = (Math.random() - 0.5) * 28;
-      posArray[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      posArray[i * 3 + 2] = (Math.random() - 0.5) * 20;
+      posArray[i * 3] = (Math.random() - 0.5) * 26;
+      posArray[i * 3 + 1] = (Math.random() - 0.5) * 18;
+      posArray[i * 3 + 2] = (Math.random() - 0.5) * 18;
 
       const col = palette[Math.floor(Math.random() * palette.length)];
       colorArray[i * 3] = col.r;
@@ -93,190 +93,188 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
     particleGeo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
 
     const particleMat = new THREE.PointsMaterial({
-      size: 0.12,
+      size: 0.16,
       vertexColors: true,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.8,
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     introGroup.add(particles);
 
-    // 2. Multi-part floating geometric objects (glass spheres, metallic rings, prisms, cubes)
-    const objects: Array<{
-      mesh: THREE.Object3D;
-      rotSpeed: { x: number; y: number; z: number };
-      driftSpeed: { x: number; y: number; z: number };
-      initPos: THREE.Vector3;
-    }> = [];
+    // 2. Centerpiece: 3D Procedural AnK! Comic Starburst & Logo
+    const starburstGroup = new THREE.Group();
+    starburstGroup.scale.set(0.001, 0.001, 0.001);
+    introGroup.add(starburstGroup);
 
-    // Metallic ring
-    const ringGeo = new THREE.TorusGeometry(2.4, 0.16, 24, 64);
-    const ringMat = new THREE.MeshPhysicalMaterial({
-      color: 0x6366F1,
-      metalness: 0.9,
-      roughness: 0.15,
+    // Procedural 16-point jagged comic burst shape
+    const starShape = new THREE.Shape();
+    const points = 16;
+    for (let i = 0; i < points * 2; i++) {
+      const angle = (i / (points * 2)) * Math.PI * 2;
+      const jitter = (i % 3 === 0 ? 0.35 : i % 2 === 0 ? -0.2 : 0.1);
+      const r = (i % 2 === 0 ? 2.5 + jitter : 1.5 + jitter * 0.5);
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      if (i === 0) starShape.moveTo(x, y);
+      else starShape.lineTo(x, y);
+    }
+    starShape.closePath();
+
+    const extrudeSettings = {
+      depth: 0.35,
+      bevelEnabled: true,
+      bevelSegments: 4,
+      bevelSize: 0.1,
+      bevelThickness: 0.1,
+    };
+    const starGeo = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
+    starGeo.center();
+
+    // Obsidian black metallic finish
+    const starMat = new THREE.MeshPhysicalMaterial({
+      color: 0x18181B,
+      metalness: 0.8,
+      roughness: 0.2,
       clearcoat: 1.0,
       clearcoatRoughness: 0.1,
     });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(-3.5, 1.5, -2);
-    introGroup.add(ring);
-    objects.push({
-      mesh: ring,
-      rotSpeed: { x: 0.012, y: 0.018, z: 0.005 },
-      driftSpeed: { x: 0.003, y: 0.002, z: 0.001 },
-      initPos: ring.position.clone(),
-    });
+    const starMesh = new THREE.Mesh(starGeo, starMat);
+    starMesh.position.z = -0.2;
+    starburstGroup.add(starMesh);
 
-    // Glass Icosahedron Prism
-    const prismGeo = new THREE.IcosahedronGeometry(1.6, 0);
-    const prismMat = new THREE.MeshPhysicalMaterial({
-      color: 0xE0E7FF,
-      metalness: 0.1,
-      roughness: 0.05,
-      transmission: isSoftware ? 0 : 0.88,
+    // Purple Glowing Accent Wireframe Rim
+    const starRimMat = new THREE.MeshStandardMaterial({
+      color: 0x7C3AED,
+      emissive: 0x6D28D9,
+      emissiveIntensity: 0.5,
+      wireframe: true,
+    });
+    const starRim = new THREE.Mesh(starGeo, starRimMat);
+    starRim.scale.set(1.03, 1.03, 1.08);
+    starburstGroup.add(starRim);
+
+    // Front Emblem Texture Plate featuring the authentic user logo
+    const textureLoader = new THREE.TextureLoader();
+    const logoTexture = textureLoader.load('/assets/aistudio/1792931151691_d855e005.png', () => {
+      renderer.render(scene, camera);
+    });
+    logoTexture.colorSpace = THREE.SRGBColorSpace;
+
+    const emblemGeo = new THREE.CylinderGeometry(1.8, 1.8, 0.16, 48);
+    emblemGeo.rotateX(Math.PI / 2);
+
+    const emblemMatFront = new THREE.MeshBasicMaterial({
+      map: logoTexture,
       transparent: true,
-      opacity: isSoftware ? 0.45 : 0.95,
-      ior: 1.6,
-      reflectivity: 0.9,
     });
-    const prism = new THREE.Mesh(prismGeo, prismMat);
-    prism.position.set(3.8, -1.2, -1);
-    introGroup.add(prism);
-    objects.push({
-      mesh: prism,
-      rotSpeed: { x: 0.015, y: -0.01, z: 0.008 },
-      driftSpeed: { x: -0.002, y: 0.003, z: 0 },
-      initPos: prism.position.clone(),
+    const emblemMatSide = new THREE.MeshPhysicalMaterial({
+      color: 0x7C3AED, // purple extruded side
+      metalness: 0.85,
+      roughness: 0.15,
     });
+    const emblemMesh = new THREE.Mesh(emblemGeo, [emblemMatSide, emblemMatFront, emblemMatSide]);
+    emblemMesh.position.z = 0.25;
+    starburstGroup.add(emblemMesh);
 
-    // Central Monolith / 3D Structure that forms in Scene 3
-    const centerStructure = new THREE.Group();
-    centerStructure.position.set(0, 0, 0);
-    centerStructure.scale.set(0.001, 0.001, 0.001); // starts collapsed
-    introGroup.add(centerStructure);
+    // Kinetic Outer Orbit Rings
+    const ring1 = new THREE.Mesh(
+      new THREE.TorusGeometry(3.1, 0.05, 16, 64),
+      new THREE.MeshStandardMaterial({ color: 0xA855F7, metalness: 0.9, roughness: 0.1 })
+    );
+    ring1.rotation.x = Math.PI / 2.5;
+    starburstGroup.add(ring1);
 
-    // Inner glowing geometric core
-    const coreGeo = new THREE.OctahedronGeometry(1.4, 2);
-    const coreMat = new THREE.MeshPhysicalMaterial({
-      color: 0x8B5CF6,
-      metalness: 0.3,
-      roughness: 0.2,
-      emissive: 0x4338CA,
-      emissiveIntensity: 0.4,
-      clearcoat: 0.8,
-    });
-    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    centerStructure.add(coreMesh);
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(3.6, 0.04, 16, 64),
+      new THREE.MeshStandardMaterial({ color: 0x06B6D4, metalness: 0.9, roughness: 0.1 })
+    );
+    ring2.rotation.y = Math.PI / 3;
+    starburstGroup.add(ring2);
 
-    // Orbiting concentric rings around core
-    const innerRingGeo = new THREE.TorusGeometry(2.0, 0.06, 16, 48);
-    const innerRingMat = new THREE.MeshStandardMaterial({
-      color: 0x06B6D4,
-      metalness: 0.95,
-      roughness: 0.1,
-    });
-    const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
-    centerStructure.add(innerRing);
-
-    const outerRingGeo = new THREE.TorusGeometry(2.7, 0.04, 16, 48);
-    const outerRingMat = new THREE.MeshStandardMaterial({
-      color: 0xF59E0B,
-      metalness: 0.9,
-      roughness: 0.2,
-    });
-    const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
-    outerRing.rotation.x = Math.PI / 3;
-    centerStructure.add(outerRing);
-
-    // Additional floating crystal cubes
-    for (let i = 0; i < 6; i++) {
-      const cubeSize = 0.4 + Math.random() * 0.5;
-      const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
-      const cubeMat = new THREE.MeshPhysicalMaterial({
-        color: i % 2 === 0 ? 0x818CF8 : 0x38BDF8,
-        metalness: 0.8,
-        roughness: 0.2,
+    // Ink Droplet Splash Group
+    const splashes: THREE.Mesh[] = [];
+    const splashCount = isSoftware ? 20 : 45;
+    for (let i = 0; i < splashCount; i++) {
+      const radius = 0.05 + Math.random() * 0.14;
+      const splashGeo = new THREE.DodecahedronGeometry(radius, 1);
+      const isPurple = Math.random() > 0.7;
+      const splashMat = new THREE.MeshPhysicalMaterial({
+        color: isPurple ? 0xA855F7 : 0x09090B,
+        metalness: isPurple ? 0.7 : 0.2,
+        roughness: 0.1,
         clearcoat: 1.0,
       });
-      const cube = new THREE.Mesh(cubeGeo, cubeMat);
-      const angle = (i / 6) * Math.PI * 2;
-      const dist = 4.5 + Math.random() * 2;
-      cube.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist * 0.7, (Math.random() - 0.5) * 4);
-      introGroup.add(cube);
-      objects.push({
-        mesh: cube,
-        rotSpeed: { x: 0.02 * (Math.random() - 0.5), y: 0.02 * (Math.random() - 0.5), z: 0.01 },
-        driftSpeed: { x: 0.001, y: -0.001, z: 0.001 },
-        initPos: cube.position.clone(),
-      });
+      const splash = new THREE.Mesh(splashGeo, splashMat);
+
+      const angle = (i / splashCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const dist = 2.4 + Math.random() * 1.8;
+      splash.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist, (Math.random() - 0.5) * 0.8);
+
+      starburstGroup.add(splash);
+      splashes.push(splash);
     }
 
     let animationFrameId: number;
     const startTime = performance.now();
-    const totalDuration = 7000; // 7 seconds full cinematic experience
+    const totalDuration = 6500;
 
     function tick(now: number) {
       const elapsed = now - startTime;
       const progressFraction = Math.min(elapsed / totalDuration, 1);
       setProgress(Math.floor(progressFraction * 100));
 
-      // Determine scene stage based on elapsed time
-      if (elapsed < 1400) {
+      if (elapsed < 1200) {
         setSceneStage(1); // The White Void
-      } else if (elapsed < 3000) {
-        setSceneStage(2); // Objects in Motion
-      } else if (elapsed < 4600) {
-        setSceneStage(3); // Cinematic 3D Reveal
-      } else if (elapsed < 6200) {
+      } else if (elapsed < 2600) {
+        setSceneStage(2); // Objects & Particles in Motion
+      } else if (elapsed < 4200) {
+        setSceneStage(3); // 3D AnK Starburst Crystallization
+      } else if (elapsed < 5800) {
         setSceneStage(4); // Brand Reveal
       } else {
-        setSceneStage(5); // Smooth Transition Out
+        setSceneStage(5); // Transition into Homepage
       }
 
-      // Rotate objects
-      objects.forEach((obj, idx) => {
-        obj.mesh.rotation.x += obj.rotSpeed.x;
-        obj.mesh.rotation.y += obj.rotSpeed.y;
-        obj.mesh.rotation.z += obj.rotSpeed.z;
+      // Rotate background particles
+      particles.rotation.y = now * 0.0003;
+      particles.rotation.x = now * 0.0002;
 
-        // Subtle undulating drift
-        const t = (now * 0.001) + idx;
-        obj.mesh.position.y = obj.initPos.y + Math.sin(t) * 0.4;
-        obj.mesh.position.x = obj.initPos.x + Math.cos(t * 0.8) * 0.3;
-      });
-
-      // Animate center structure crystallization
-      if (elapsed >= 1400) {
-        const revealFactor = Math.min((elapsed - 1400) / 1800, 1);
+      // Animate Starburst Assembly
+      if (elapsed >= 1200) {
+        const revealFactor = Math.min((elapsed - 1200) / 1600, 1);
         const easeOutBack = (x: number) => {
           const c1 = 1.70158;
           const c3 = c1 + 1;
           return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
         };
         const currentScale = THREE.MathUtils.lerp(0.001, 1.0, easeOutBack(revealFactor));
-        centerStructure.scale.set(currentScale, currentScale, currentScale);
+        starburstGroup.scale.set(currentScale, currentScale, currentScale);
 
-        coreMesh.rotation.y += 0.02;
-        coreMesh.rotation.x += 0.01;
-        innerRing.rotation.z += 0.025;
-        innerRing.rotation.y += 0.015;
-        outerRing.rotation.x += 0.018;
-        outerRing.rotation.y -= 0.012;
+        starburstGroup.rotation.y = Math.sin(now * 0.0012) * 0.25;
+        starburstGroup.rotation.x = Math.cos(now * 0.0015) * 0.15;
+        ring1.rotation.z += 0.015;
+        ring2.rotation.z -= 0.02;
+
+        splashes.forEach((s, idx) => {
+          s.rotation.x += 0.01;
+          s.rotation.y += 0.015;
+          const wobble = Math.sin(now * 0.004 + idx) * 0.1;
+          s.position.x += wobble * 0.01;
+        });
       }
 
-      // Animate light sweep across scene
-      keyLight.position.x = 8 * Math.cos(now * 0.0015);
-      keyLight.position.z = 6 + 3 * Math.sin(now * 0.0015);
+      // Light Sweep
+      purpleKey.position.x = 6 * Math.sin(now * 0.002);
+      purpleKey.position.y = 4 * Math.cos(now * 0.0018);
 
-      // Camera gentle push in
-      if (elapsed < 6000) {
-        camera.position.z = 14 - (elapsed / 6000) * 3;
+      // Camera push in
+      if (elapsed < 5600) {
+        camera.position.z = 13 - (elapsed / 5600) * 3.5;
       } else {
-        // Stage 5: camera moves through and objects expand outward
-        const expandFactor = (elapsed - 6000) / 1000;
-        camera.position.z = 11 - expandFactor * 6;
-        introGroup.scale.multiplyScalar(1 + expandFactor * 0.04);
+        // Expand outward in stage 5
+        const exp = (elapsed - 5600) / 900;
+        camera.position.z = 9.5 - exp * 6;
+        starburstGroup.scale.multiplyScalar(1 + exp * 0.05);
       }
 
       renderer.render(scene, camera);
@@ -284,17 +282,15 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
       if (elapsed < totalDuration) {
         animationFrameId = requestAnimationFrame(tick);
       } else {
-        // Automatically complete
         onComplete();
       }
     }
 
     animationFrameId = requestAnimationFrame(tick);
 
-    // Audio cue trigger
     const soundTimer = setTimeout(() => {
       sound.playChime();
-    }, 1800);
+    }, 1500);
 
     const resizeHandler = () => {
       if (!container) return;
@@ -324,13 +320,9 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[#FAFAFC] select-none">
-      {/* 3D WebGL Canvas Container */}
       <div ref={mountRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Subtle holographic ambient vignette */}
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_transparent_40%,_rgba(241,245,249,0.7)_100%)]" />
-
-      {/* Top HUD: Brand mark, Sound toggle & Skip button */}
+      {/* Top HUD */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-6 sm:px-12">
         <div className="flex items-center gap-3">
           <img
@@ -338,8 +330,8 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
             alt="AnK Logo"
             className="w-9 h-9 object-contain drop-shadow-sm rounded-lg"
           />
-          <span className="font-display font-bold text-sm tracking-widest uppercase text-slate-800">
-            AnK Creative Mind
+          <span className="font-display font-black text-sm tracking-widest uppercase text-slate-900">
+            AnK! <span className="font-normal text-slate-500">Creative Mind</span>
           </span>
         </div>
 
@@ -349,7 +341,7 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
             aria-label={isMuted ? 'Unmute Sound' : 'Mute Sound'}
             className="p-2.5 rounded-full bg-white/80 hover:bg-white text-slate-700 shadow-sm border border-slate-200/80 transition-all hover:scale-105 active:scale-95"
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-indigo-600" />}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-purple-600" />}
           </button>
 
           <button
@@ -357,7 +349,7 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
               sound.playClick();
               onComplete();
             }}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-wider uppercase text-slate-700 bg-white/85 hover:bg-white border border-slate-200 shadow-sm rounded-full transition-all hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-wider uppercase text-slate-800 bg-white/90 hover:bg-white border border-slate-200 shadow-sm rounded-full transition-all hover:scale-105 active:scale-95"
           >
             <span>Skip Intro</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -365,91 +357,83 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
         </div>
       </div>
 
-      {/* Centre Cinematic Overlay Text */}
+      {/* Center Cinematic Kinetic Text Overlay */}
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none px-6">
         <AnimatePresence mode="wait">
           {sceneStage <= 2 && (
             <motion.div
-              key="stage-1"
+              key="intro-stage-1"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.5 }}
               className="text-center"
             >
-              <p className="text-xs uppercase tracking-[0.3em] font-mono text-indigo-600 font-semibold mb-2">
-                Creative Technology & Design
+              <p className="text-xs uppercase tracking-[0.35em] font-mono text-purple-600 font-semibold mb-2">
+                Initiating 3D Studio Void
               </p>
-              <h2 className="font-display text-2xl sm:text-4xl font-light text-slate-700 tracking-tight">
-                Entering the Creative Space
+              <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+                Where Ideas Erupt in 3D
               </h2>
             </motion.div>
           )}
 
           {sceneStage === 3 && (
             <motion.div
-              key="stage-3"
-              initial={{ opacity: 0, scale: 0.95 }}
+              key="intro-stage-3"
+              initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.7 }}
+              transition={{ duration: 0.6 }}
               className="text-center"
             >
-              <p className="text-xs uppercase tracking-[0.3em] font-mono text-cyan-600 font-semibold mb-2">
-                Forming Dimensional Core
+              <p className="text-xs uppercase tracking-[0.35em] font-mono text-indigo-600 font-bold mb-2">
+                3D Starburst Synthesis
               </p>
-              <h2 className="font-display text-2xl sm:text-4xl font-medium text-slate-800 tracking-tight">
-                Where Imagination Takes Physical Form
+              <h2 className="font-display text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                Sculpting the Dimensional Identity
               </h2>
             </motion.div>
           )}
 
           {sceneStage >= 4 && (
             <motion.div
-              key="stage-4"
-              initial={{ opacity: 0, scale: 0.9 }}
+              key="intro-stage-4"
+              initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.1 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              exit={{ opacity: 0, scale: 1.15 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
               className="text-center flex flex-col items-center"
             >
-              {/* Authentic AnK Brand Logo Asset */}
-              <motion.div
-                initial={{ scale: 0.6, rotate: -8, opacity: 0 }}
-                animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={{ duration: 0.6, type: 'spring', stiffness: 200 }}
-                className="mb-5 relative"
-              >
-                <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full" />
-                <img
-                  src="/assets/aistudio/1792931151691_d855e005.png"
-                  alt="AnK Authentic Logo"
-                  className="w-24 h-24 sm:w-28 sm:h-28 object-contain relative drop-shadow-xl"
-                />
-              </motion.div>
+              <div className="flex items-center gap-2 text-xs font-mono font-semibold tracking-widest uppercase text-purple-600 mb-2">
+                <Sparkles className="w-4 h-4" />
+                <span>AnK Creative Mind</span>
+              </div>
 
-              <h1 className="font-display text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-3">
-                <span className="holographic-gradient-text">AnK Creative Mind</span>
+              <h1 className="font-display text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 mb-3">
+                <span className="bg-gradient-to-r from-slate-900 via-purple-700 to-indigo-600 bg-clip-text text-transparent">
+                  AnK Creative Mind
+                </span>
               </h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-                className="text-sm sm:text-lg text-slate-600 font-normal max-w-lg mx-auto"
+                transition={{ delay: 0.25, duration: 0.5 }}
+                className="text-sm sm:text-lg text-slate-600 font-medium max-w-lg mx-auto"
               >
-                Immersive 3D · High-End Design · Digital Experiences
+                Immersive 3D · Kinetic Motion · Unforgettable Experiences
               </motion.p>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Bottom Progress Bar & Stage Indicator */}
+      {/* Bottom Progress Bar */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-full max-w-xs px-6">
         <div className="w-full bg-slate-200/80 rounded-full h-1 overflow-hidden shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 transition-all duration-100 ease-out"
+            className="h-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 transition-all duration-100 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>

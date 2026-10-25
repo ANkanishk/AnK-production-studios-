@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import CinematicIntro from './components/CinematicIntro';
 import Navbar from './components/Navbar';
+import ColorScrollController from './components/ColorScrollController';
 import HeroSection from './components/HeroSection';
+import CardSlideshow3D from './components/CardSlideshow3D';
 import CreativeUniverse from './components/CreativeUniverse';
 import ServicesSection from './components/ServicesSection';
 import ProjectsGallery from './components/ProjectsGallery';
@@ -21,6 +23,11 @@ export default function App() {
 
   const handleReplayIntro = () => {
     setShowIntro(true);
+  };
+
+  const handleExploreSlideshow = () => {
+    const el = document.getElementById('slideshow');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleExploreUniverse = () => {
@@ -43,46 +50,55 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFC] text-slate-900 selection:bg-indigo-500/20 selection:text-indigo-700">
-      {/* 1. Cinematic Website Opening */}
+    <div className="min-h-screen bg-[#FAFAFC] text-slate-900 selection:bg-purple-500/20 selection:text-purple-700">
+      {/* 1. Cinematic Website Opening with 3D AnK Starburst */}
       {showIntro && <CinematicIntro onComplete={handleCompleteIntro} />}
 
-      {/* Main Website Structure */}
+      {/* Dynamic Scroll Progress & Color Animation Aura Controller */}
+      <ColorScrollController />
+
+      {/* Main Top Navigation */}
       <Navbar
         onReplayIntro={handleReplayIntro}
         onOpenProjectLab={() => handleOpenProjectLab()}
       />
 
       <main>
-        {/* 2. Interactive 3D Hero Section */}
+        {/* 2. Interactive 3D Hero with 3D AnK! Starburst */}
         <HeroSection
-          onExploreClick={handleExploreUniverse}
+          onExploreSlideshow={handleExploreSlideshow}
+          onExploreUniverse={handleExploreUniverse}
           onStartProjectClick={() => handleOpenProjectLab()}
         />
 
-        {/* 3. Creative Universe (Interactive 3D Engine & Collapsible Dock) */}
+        {/* 3. Interactive 3D Card Animation Slideshow & Perspective Carousel */}
+        <CardSlideshow3D
+          onSelectSlideForProject={(title) => handleOpenProjectLab(`Interested in 3D Blueprint: ${title}`)}
+        />
+
+        {/* 4. Creative Universe (Interactive 3D Engine & Collapsible Dock) */}
         <CreativeUniverse />
 
-        {/* 4. Our Services */}
+        {/* 5. Our Capabilities & Services */}
         <ServicesSection onSelectServiceForProject={handleSelectServiceForLab} />
 
-        {/* 5. Experimental Project Gallery */}
+        {/* 6. Experimental Project Gallery with Case Studies */}
         <ProjectsGallery onStartProject={(prompt) => handleOpenProjectLab(prompt)} />
 
-        {/* 6. Custom 3D Robot Mascot ("Meet Your Creative Companion") */}
+        {/* 7. Custom 3D Robot Mascot ("Meet Your Creative Companion") */}
         <RobotMascotSection onStartProject={(prompt) => handleOpenProjectLab(prompt)} />
 
-        {/* 7. Project Lab (Client Intake & Brief Generator) */}
+        {/* 8. Project Lab (Client Intake & Brief Generator) */}
         <ProjectLab
           initialService={selectedServiceForLab}
           initialIdeaPrompt={initialIdeaForLab}
         />
 
-        {/* 8. Contact Section */}
+        {/* 9. Contact & Consultation Scheduler */}
         <ContactSection />
       </main>
 
-      {/* 9. Footer */}
+      {/* 10. Footer */}
       <Footer onReplayIntro={handleReplayIntro} />
     </div>
   );

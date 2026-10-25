@@ -27,9 +27,10 @@ export default function Navbar({ onReplayIntro, onOpenProjectLab }: NavbarProps)
 
   const navLinks = [
     { label: 'Home', href: '#home' },
+    { label: '3D Slideshow', href: '#slideshow' },
+    { label: '3D Lab', href: '#universe' },
     { label: 'Services', href: '#services' },
     { label: 'Projects', href: '#projects' },
-    { label: '3D Lab', href: '#universe' },
     { label: 'Mascot', href: '#robot' },
     { label: 'Contact', href: '#contact' },
   ];
