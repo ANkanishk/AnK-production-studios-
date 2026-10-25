@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Play, Pause, ArrowUpRight, Sparkles, Box, Eye, Layers } from 'lucide-react';
 import { sound } from '../utils/soundEffects';
 
@@ -12,7 +11,7 @@ interface ShowcaseSlide {
   tagline: string;
   gradient: string;
   accentColor: string;
-  renderType: 'prism' | 'brand' | 'kinetic' | 'torus' | 'spatial';
+  renderType: 'brand' | 'prism' | 'kinetic' | 'torus' | 'spatial';
   metrics: { label: string; value: string }[];
   overview: string;
 }
@@ -33,7 +32,7 @@ const showcaseSlides: ShowcaseSlide[] = [
       { label: 'Materials', value: 'Obsidian PBR' },
       { label: 'Frame Pacing', value: '60 FPS' },
     ],
-    overview: 'Our studio flagship brand emblem sculpted into an interactive 3D physical installation. Features jagged obsidian facets, extruded purple letter depth, and floating ink particles that react to cursor kinematics.',
+    overview: 'Our studio flagship brand emblem sculpted into an interactive 3D physical installation. Features jagged obsidian facets, extruded purple letter depth, and floating ink particles.',
   },
   {
     id: 'slide-chroma',
@@ -50,7 +49,7 @@ const showcaseSlides: ShowcaseSlide[] = [
       { label: 'Shader Passes', value: '1 Single-Pass' },
       { label: 'Shadow Type', value: 'Soft Contact' },
     ],
-    overview: 'An ethereal digital gallery exploring continuous spectral refraction. Visitors navigate through faceted quartz prisms, orbiting gyroscopes, and real-time volumetric light beams.',
+    overview: 'An ethereal digital gallery exploring continuous spectral refraction. Visitors navigate through faceted quartz prisms, orbiting gyroscopes, and volumetric light beams.',
   },
   {
     id: 'slide-aether',
@@ -67,7 +66,7 @@ const showcaseSlides: ShowcaseSlide[] = [
       { label: 'Layout Shift (CLS)', value: '0.000' },
       { label: 'Lighthouse Score', value: '100 / 100' },
     ],
-    overview: 'A high-performance digital flagship built with compositor-only animations. Demonstrates magnetic cursor tracking, organic elastic drawers, and frictionless navigation rhythms.',
+    overview: 'A high-performance digital flagship built with compositor-only animations. Demonstrates magnetic cursor tracking, organic elastic drawers, and frictionless navigation.',
   },
   {
     id: 'slide-vortex',
@@ -105,71 +104,345 @@ const showcaseSlides: ShowcaseSlide[] = [
   },
 ];
 
+// Single 3D Card with local Mouse-Tilt and Holographic Border Lighting
+interface Card3DProps {
+  slide: ShowcaseSlide;
+  index: number;
+  currentIndex: number;
+  totalSlides: number;
+  rotationOffset: number;
+  onSelect: () => void;
+  onInspect: () => void;
+  onInquire: () => void;
+}
+
+function Card3D({
+  slide,
+  index,
+  currentIndex,
+  totalSlides,
+  rotationOffset,
+  onSelect,
+  onInspect,
+  onInquire,
+}: Card3DProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0, isHovered: false });
+
+  // Calculate carousel positioning
+  const cardAngle = (index / totalSlides) * 360;
+  const netAngle = (cardAngle + rotationOffset) % 360;
+  const normalizedAngle = netAngle > 180 ? netAngle - 360 : netAngle < -180 ? netAngle + 360 : netAngle;
+  const isActive = Math.abs(normalizedAngle) < 25;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const normX = (x / rect.width - 0.5) * 2;
+    const normY = (y / rect.height - 0.5) * 2;
+
+    setTilt({
+      x: -normY * 14,
+      y: normX * 14,
+    });
+    setCursorPos({ x, y, isHovered: true });
+  };
+
+  const handleMouseLeave = () => {
+    setTilt({ x: 0, y: 0 });
+    setCursorPos((prev) => ({ ...prev, isHovered: false }));
+  };
+
+  // Cylinder radius for 3D carousel
+  const carouselRadius = 520;
+  const carouselTransform = `rotateY(${cardAngle + rotationOffset}deg) translateZ(${carouselRadius}px)`;
+
+  return (
+    <div
+      style={{
+        transform: carouselTransform,
+        transformStyle: 'preserve-3d',
+        opacity: Math.cos((normalizedAngle * Math.PI) / 180) > 0.1 ? 1 : 0.15,
+        zIndex: isActive ? 40 : 10,
+      }}
+      className="absolute w-[90%] sm:w-[540px] lg:w-[620px] transition-opacity duration-300 pointer-events-auto"
+    >
+      {/* Tilt Container with Holographic Border Light */}
+      <div
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={onSelect}
+        style={{
+          transform: `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale3d(${isActive ? 1 : 0.88}, ${isActive ? 1 : 0.88}, 1)`,
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.15s ease-out, box-shadow 0.3s ease',
+        }}
+        className={`relative rounded-3xl bg-white border overflow-hidden cursor-pointer shadow-2xl flex flex-col justify-between ${
+          isActive
+            ? 'border-transparent ring-2 ring-purple-500/40 shadow-purple-900/15'
+            : 'border-slate-200/90 shadow-slate-900/10 filter brightness-95'
+        }`}
+      >
+        {/* Holographic Border Lighting (Follows Cursor Coordinates) */}
+        {cursorPos.isHovered && (
+          <div
+            className="absolute inset-0 pointer-events-none rounded-3xl z-30 transition-opacity duration-200"
+            style={{
+              background: `radial-gradient(400px circle at ${cursorPos.x}px ${cursorPos.y}px, rgba(168, 85, 247, 0.4), rgba(6, 182, 212, 0.25), rgba(245, 158, 11, 0.15), transparent 70%)`,
+              mixBlendMode: 'color-dodge',
+            }}
+          />
+        )}
+
+        {/* Dynamic Holographic Border Highlight */}
+        {cursorPos.isHovered && (
+          <div
+            className="absolute -inset-[1px] rounded-3xl pointer-events-none z-20"
+            style={{
+              background: `radial-gradient(220px circle at ${cursorPos.x}px ${cursorPos.y}px, rgba(168, 85, 247, 0.9), rgba(6, 182, 212, 0.8), transparent 75%)`,
+              mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              maskComposite: 'exclude',
+              padding: '1.5px',
+            }}
+          />
+        )}
+
+        {/* Card Artwork Banner */}
+        <div className={`relative h-[210px] sm:h-[240px] w-full bg-gradient-to-tr ${slide.gradient} p-6 flex flex-col justify-between text-white overflow-hidden`}>
+          <div className="absolute inset-0 bg-grid-pattern opacity-15" />
+
+          {/* Top Info inside Banner */}
+          <div className="relative z-10 flex items-center justify-between">
+            <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-black/40 backdrop-blur-md">
+              {slide.num} / 05
+            </span>
+            <span className="font-mono text-xs text-white/80 uppercase tracking-wider">
+              {slide.category}
+            </span>
+          </div>
+
+          {/* Center 3D Symbol / Authentic Logo */}
+          <div className="relative z-10 flex items-center justify-center my-auto">
+            {slide.renderType === 'brand' ? (
+              <div className="relative group/logo">
+                <div className="absolute -inset-4 bg-purple-500/35 blur-xl rounded-full" />
+                <img
+                  src="/assets/aistudio/1792931151691_d855e005.png"
+                  alt="AnK 3D Logo"
+                  className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-2xl relative transition-transform duration-300 hover:scale-110"
+                />
+              </div>
+            ) : (
+              <div className="w-18 h-18 sm:w-22 sm:h-22 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-2xl">
+                <Box className="w-10 h-10 text-white/90" />
+              </div>
+            )}
+          </div>
+
+          <div className="relative z-10 flex items-center justify-between text-xs text-white/90">
+            <span className="font-display font-semibold">{slide.subtitle}</span>
+            <span className="font-mono text-[11px] opacity-80">3D Velocity Carousel</span>
+          </div>
+        </div>
+
+        {/* Card Content & Metrics */}
+        <div className="p-6 sm:p-7 flex flex-col justify-between flex-grow bg-white">
+          <div>
+            <h3 className="font-display text-2xl sm:text-3xl font-black text-slate-900 mb-2">
+              {slide.title}
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed mb-4">
+              {slide.tagline}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
+            {slide.metrics.map((m, mIdx) => (
+              <div key={mIdx} className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                <span className="font-display text-sm font-bold text-slate-900 block tabular-nums">
+                  {m.value}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono block truncate">
+                  {m.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 flex items-center justify-between">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onInspect();
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Inspect 3D Blueprint</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onInquire();
+              }}
+              className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-purple-600 rounded-full transition-colors active:scale-95"
+            >
+              <span>Inquire</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface CardSlideshow3DProps {
   onSelectSlideForProject?: (title: string) => void;
 }
 
 export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlideshow3DProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [activeModalSlide, setActiveModalSlide] = useState<ShowcaseSlide | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const velocityRef = useRef(0);
+  const lastScrollY = useRef(0);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartAngle = useRef(0);
 
   const totalSlides = showcaseSlides.length;
+  const anglePerSlide = 360 / totalSlides;
+
+  // Active slide calculation based on current angle
+  const activeIndex = Math.round((-rotationAngle / anglePerSlide) % totalSlides + totalSlides) % totalSlides;
+  const activeSlide = showcaseSlides[activeIndex];
+
+  // 1. Scroll-Velocity Tracking to rotate 3D carousel
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const deltaY = currentY - lastScrollY.current;
+      lastScrollY.current = currentY;
+
+      // Add angular velocity proportional to scroll velocity
+      if (Math.abs(deltaY) > 0.5) {
+        velocityRef.current += deltaY * 0.08;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // 2. Mouse Wheel over Carousel
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      velocityRef.current += e.deltaY * 0.12;
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  // 3. 60FPS Inertia & Momentum Physics Loop
+  useEffect(() => {
+    let animId: number;
+
+    const tick = () => {
+      if (!isDragging.current) {
+        // Apply velocity with exponential friction decay
+        if (Math.abs(velocityRef.current) > 0.01) {
+          setRotationAngle((prev) => prev - velocityRef.current);
+          velocityRef.current *= 0.92; // friction
+        } else if (isPlaying) {
+          // Slow steady rotation during autoplay
+          setRotationAngle((prev) => prev - 0.25);
+        }
+      }
+
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying]);
+
+  // Pointer drag controls
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartAngle.current = rotationAngle;
+    velocityRef.current = 0;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const deltaX = e.clientX - dragStartX.current;
+    const newAngle = dragStartAngle.current + deltaX * 0.35;
+    setRotationAngle(newAngle);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const deltaX = e.clientX - dragStartX.current;
+    velocityRef.current = -deltaX * 0.15;
+  };
 
   const nextSlide = () => {
     sound.playClick();
-    setCurrentIndex((prev) => (prev + 1) % totalSlides);
+    velocityRef.current = 15;
   };
 
   const prevSlide = () => {
     sound.playClick();
-    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
+    velocityRef.current = -15;
   };
 
-  const goToSlide = (idx: number) => {
+  const snapToSlide = (idx: number) => {
     sound.playClick();
-    setCurrentIndex(idx);
+    const targetAngle = -idx * anglePerSlide;
+    setRotationAngle(targetAngle);
+    velocityRef.current = 0;
   };
-
-  // Autoplay handler
-  useEffect(() => {
-    if (isPlaying && !activeModalSlide) {
-      timerRef.current = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % totalSlides);
-      }, 5500);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPlaying, activeModalSlide, totalSlides]);
-
-  const activeSlide = showcaseSlides[currentIndex];
 
   return (
     <section id="slideshow" className="py-24 bg-[#FAFAFC] relative overflow-hidden border-t border-slate-200/80">
-      {/* Background Animated Color Glow reflecting active slide */}
+      {/* Background Animated Color Glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full blur-[140px] pointer-events-none transition-colors duration-1000 -z-10 opacity-30"
         style={{ backgroundColor: activeSlide.accentColor }}
       />
 
       <div className="max-w-7xl mx-auto px-6 sm:px-8">
-        {/* Section Header with Text Animation */}
+        {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono font-medium text-indigo-600 tracking-widest uppercase mb-2">
+            <div className="flex items-center gap-2 text-xs font-mono font-medium text-purple-600 tracking-widest uppercase mb-2">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>3D Showcase Slideshow</span>
+              <span>3D Carousel Structure</span>
               <span aria-hidden="true" className="text-slate-300">/</span>
-              <span>Perspective Carousel</span>
+              <span>Scroll Velocity Responsive</span>
             </div>
             <h2 className="font-display text-3xl sm:text-5xl font-black text-slate-900 tracking-tight">
               INTERACTIVE 3D SLIDESHOW
             </h2>
           </div>
 
-          {/* Autoplay & Navigation Controls */}
+          {/* Controls */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
@@ -178,7 +451,7 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono font-medium text-slate-700 bg-white border border-slate-200/90 rounded-full shadow-xs hover:bg-slate-50 transition-colors"
             >
-              {isPlaying ? <Pause className="w-3 h-3 text-indigo-600" /> : <Play className="w-3 h-3 text-indigo-600" />}
+              {isPlaying ? <Pause className="w-3 h-3 text-purple-600" /> : <Play className="w-3 h-3 text-purple-600" />}
               <span>{isPlaying ? 'Autoplay On' : 'Paused'}</span>
             </button>
 
@@ -186,14 +459,14 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
               <button
                 onClick={prevSlide}
                 aria-label="Previous Slide"
-                className="p-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-xs hover:border-indigo-300 transition-all hover:scale-105 active:scale-95"
+                className="p-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-xs hover:border-purple-300 transition-all hover:scale-105 active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={nextSlide}
                 aria-label="Next Slide"
-                className="p-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-xs hover:border-indigo-300 transition-all hover:scale-105 active:scale-95"
+                className="p-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-xs hover:border-purple-300 transition-all hover:scale-105 active:scale-95"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -201,169 +474,55 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
           </div>
         </div>
 
-        {/* 3D Perspective Carousel Container */}
-        <div className="relative h-[480px] sm:h-[540px] w-full flex items-center justify-center [perspective:1400px]">
-          {showcaseSlides.map((slide, idx) => {
-            const offset = (idx - currentIndex + totalSlides) % totalSlides;
-            let transformStyle = '';
-            let zIndex = 10;
-            let opacity = 0;
-            let pointerEvents = 'none';
-
-            if (offset === 0) {
-              // Center Active Card
-              transformStyle = 'translateX(0%) translateZ(0px) rotateY(0deg) scale(1)';
-              zIndex = 30;
-              opacity = 1;
-              pointerEvents = 'auto';
-            } else if (offset === 1) {
-              // Right Card
-              transformStyle = 'translateX(65%) translateZ(-160px) rotateY(-32deg) scale(0.85)';
-              zIndex = 20;
-              opacity = 0.8;
-              pointerEvents = 'auto';
-            } else if (offset === totalSlides - 1) {
-              // Left Card
-              transformStyle = 'translateX(-65%) translateZ(-160px) rotateY(32deg) scale(0.85)';
-              zIndex = 20;
-              opacity = 0.8;
-              pointerEvents = 'auto';
-            } else {
-              // Hidden outer cards
-              transformStyle = offset < totalSlides / 2 
-                ? 'translateX(120%) translateZ(-300px) rotateY(-45deg) scale(0.7)'
-                : 'translateX(-120%) translateZ(-300px) rotateY(45deg) scale(0.7)';
-              zIndex = 5;
-              opacity = 0;
-              pointerEvents = 'none';
-            }
-
-            return (
-              <div
+        {/* 3D Cylindrical Carousel Viewport */}
+        <div
+          ref={containerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          className="relative h-[500px] sm:h-[560px] w-full flex items-center justify-center [perspective:1400px] select-none cursor-grab active:cursor-grabbing"
+        >
+          {/* Rotating 3D Ring Stage */}
+          <div
+            style={{
+              transformStyle: 'preserve-3d',
+            }}
+            className="relative w-full h-full flex items-center justify-center pointer-events-none"
+          >
+            {showcaseSlides.map((slide, idx) => (
+              <Card3D
                 key={slide.id}
-                onClick={() => {
-                  if (offset !== 0) goToSlide(idx);
+                slide={slide}
+                index={idx}
+                currentIndex={activeIndex}
+                totalSlides={totalSlides}
+                rotationOffset={rotationAngle}
+                onSelect={() => snapToSlide(idx)}
+                onInspect={() => {
+                  sound.playClick();
+                  setActiveModalSlide(slide);
                 }}
-                style={{
-                  transform: transformStyle,
-                  zIndex,
-                  opacity,
-                  pointerEvents: pointerEvents as 'auto' | 'none',
+                onInquire={() => {
+                  sound.playClick();
+                  if (onSelectSlideForProject) onSelectSlideForProject(slide.title);
                 }}
-                className={`absolute w-[92%] sm:w-[580px] lg:w-[680px] h-[440px] sm:h-[480px] rounded-3xl bg-white border border-slate-200/90 shadow-2xl transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden cursor-pointer flex flex-col justify-between ${
-                  offset === 0 ? 'ring-2 ring-indigo-500/20' : 'filter brightness-95'
-                }`}
-              >
-                {/* Card Artwork Banner */}
-                <div className={`relative h-[230px] sm:h-[260px] w-full bg-gradient-to-tr ${slide.gradient} p-6 flex flex-col justify-between text-white overflow-hidden`}>
-                  {/* Subtle Grid Pattern Overlay */}
-                  <div className="absolute inset-0 bg-grid-pattern opacity-15" />
-
-                  {/* Top Bar inside Card Banner */}
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-black/40 backdrop-blur-md">
-                      {slide.num} / 05
-                    </span>
-                    <span className="font-mono text-xs text-white/80 uppercase tracking-wider">
-                      {slide.category}
-                    </span>
-                  </div>
-
-                  {/* Center Emblem/Symbol in 3D */}
-                  <div className="relative z-10 flex items-center justify-center my-auto">
-                    {slide.renderType === 'brand' ? (
-                      <div className="relative group/logo">
-                        <div className="absolute -inset-4 bg-purple-500/30 blur-xl rounded-full" />
-                        <img
-                          src="/assets/aistudio/1792931151691_d855e005.png"
-                          alt="AnK 3D Logo"
-                          className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-2xl relative transition-transform duration-500 hover:scale-110"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-2xl">
-                        <Box className="w-10 h-10 text-white/90" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom Indicator inside Banner */}
-                  <div className="relative z-10 flex items-center justify-between text-xs text-white/90">
-                    <span className="font-display font-semibold">{slide.subtitle}</span>
-                    <span className="font-mono text-[11px] opacity-80">3D Interactive</span>
-                  </div>
-                </div>
-
-                {/* Card Content & Metrics */}
-                <div className="p-6 sm:p-7 flex flex-col justify-between flex-grow bg-white">
-                  <div>
-                    <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">
-                      {slide.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed mb-4">
-                      {slide.tagline}
-                    </p>
-                  </div>
-
-                  {/* Metrics Row */}
-                  <div className="grid grid-cols-3 gap-2.5 pt-4 border-t border-slate-100">
-                    {slide.metrics.map((m, mIdx) => (
-                      <div key={mIdx} className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-center">
-                        <span className="font-display text-sm font-bold text-slate-900 block tabular-nums">
-                          {m.value}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono block truncate">
-                          {m.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Bottom Card Actions */}
-                  <div className="pt-4 flex items-center justify-between">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sound.playClick();
-                        setActiveModalSlide(slide);
-                      }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Inspect 3D Blueprint</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        sound.playClick();
-                        if (onSelectSlideForProject) {
-                          onSelectSlideForProject(slide.title);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-indigo-600 rounded-full transition-colors active:scale-95"
-                    >
-                      <span>Inquire</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Slideshow Pagination Indicator & Kinetic Text Strip */}
+        {/* Carousel Footer Pagination & Kinetic Text */}
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200/70">
           <div className="flex items-center gap-2">
             {showcaseSlides.map((_, dotIdx) => (
               <button
                 key={dotIdx}
-                onClick={() => goToSlide(dotIdx)}
+                onClick={() => snapToSlide(dotIdx)}
                 aria-label={`Go to slide ${dotIdx + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  currentIndex === dotIdx
-                    ? 'w-8 bg-indigo-600'
+                  activeIndex === dotIdx
+                    ? 'w-8 bg-purple-600'
                     : 'w-2 bg-slate-200 hover:bg-slate-300'
                 }`}
               />
@@ -371,9 +530,9 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
           </div>
 
           <div className="text-xs font-mono text-slate-500 flex items-center gap-3">
-            <span>Slide 0{currentIndex + 1} of 05</span>
+            <span>Scroll or drag to rotate 3D cards</span>
             <span className="text-slate-300">/</span>
-            <span className="text-indigo-600 font-semibold">{activeSlide.title}</span>
+            <span>Active: <strong className="text-purple-600">{activeSlide.title}</strong></span>
           </div>
         </div>
       </div>
@@ -383,8 +542,8 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-xs font-semibold text-indigo-600 uppercase tracking-wider">
-                {activeModalSlide.category} · Blueprint 0{currentIndex + 1}
+              <span className="font-mono text-xs font-semibold text-purple-600 uppercase tracking-wider">
+                {activeModalSlide.category} · Blueprint {activeModalSlide.num}
               </span>
               <button
                 onClick={() => setActiveModalSlide(null)}
@@ -428,7 +587,7 @@ export default function CardSlideshow3D({ onSelectSlideForProject }: CardSlidesh
                     onSelectSlideForProject(title);
                   }
                 }}
-                className="px-6 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-full shadow-md"
+                className="px-6 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-full shadow-md"
               >
                 Start Project With This Blueprint
               </button>

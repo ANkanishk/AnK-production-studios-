@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import AnKLogo3D from './AnKLogo3D';
-import HeroScene3D from './HeroScene3D';
-import { ArrowDown, Sparkles, ArrowUpRight, Flame, Layers } from 'lucide-react';
+import HeroFiberScene from './HeroFiberScene';
+import { ArrowDown, ArrowUpRight, Layers } from 'lucide-react';
 import { sound } from '../utils/soundEffects';
 
 interface HeroSectionProps {
@@ -23,7 +22,7 @@ export default function HeroSection({
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[850px] bg-gradient-to-tr from-purple-200/30 via-indigo-100/35 to-cyan-100/30 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-7xl mx-auto px-6 sm:px-8 w-full">
-        {/* Split Hero: Bold Editorial Kinetic Typography on Left, 3D AnK! Logo Scene on Right */}
+        {/* Split Hero: Bold Editorial Kinetic Typography on Left, R3F 3D Scene on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           {/* Left Column: Kinetic Headlines & Actions (6 cols) */}
           <div className="lg:col-span-6 flex flex-col z-10">
@@ -32,7 +31,7 @@ export default function HeroSection({
               <span className="w-2 h-2 rounded-full bg-purple-600"></span>
               <span>AnK Creative Mind</span>
               <span aria-hidden="true" className="text-slate-300">/</span>
-              <span>3D Dimensional Studio</span>
+              <span>R3F & Drei 3D Studio</span>
             </div>
 
             {/* Kinetic Typography Headline matching logo's punchy comic 3D energy */}
@@ -107,19 +106,15 @@ export default function HeroSection({
             </div>
           </div>
 
-          {/* Right Column: 3D Stage with Interactive Logo / Prism (6 cols) */}
+          {/* Right Column: React Three Fiber Canvas with Transmission & Environment (6 cols) */}
           <div className="lg:col-span-6 relative flex items-center justify-center">
             <div className="w-full relative rounded-3xl overflow-hidden glass-panel p-2">
-              {active3DMode === 'ank-logo' ? (
-                <AnKLogo3D size="lg" interactive={true} />
-              ) : (
-                <HeroScene3D />
-              )}
+              <HeroFiberScene mode={active3DMode} />
 
               {/* Minimal floating spec label */}
-              <div className="absolute bottom-4 right-4 z-10 px-3.5 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 text-[11px] font-mono text-slate-700 shadow-sm flex items-center gap-2">
+              <div className="absolute bottom-4 right-4 z-10 px-3.5 py-1.5 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200/90 text-[11px] font-mono text-slate-700 shadow-sm flex items-center gap-2 pointer-events-none">
                 <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                <span>{active3DMode === 'ank-logo' ? '3D AnK! Starburst Engine' : 'PBR Studio Rig'}</span>
+                <span>@react-three/fiber · Drei PBR Studio</span>
               </div>
             </div>
           </div>

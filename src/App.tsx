@@ -4,7 +4,7 @@ import Navbar from './components/Navbar';
 import ColorScrollController from './components/ColorScrollController';
 import HeroSection from './components/HeroSection';
 import CardSlideshow3D from './components/CardSlideshow3D';
-import CreativeUniverse from './components/CreativeUniverse';
+import CreativeUniverseFiber from './components/CreativeUniverseFiber';
 import ServicesSection from './components/ServicesSection';
 import ProjectsGallery from './components/ProjectsGallery';
 import RobotMascotSection from './components/RobotMascotSection';
@@ -76,8 +76,8 @@ export default function App() {
           onSelectSlideForProject={(title) => handleOpenProjectLab(`Interested in 3D Blueprint: ${title}`)}
         />
 
-        {/* 4. Creative Universe (Interactive 3D Engine & Collapsible Dock) */}
-        <CreativeUniverse />
+        {/* 4. Creative Universe (Fiber & Drei 3D Engine & Collapsible Dock) */}
+        <CreativeUniverseFiber />
 
         {/* 5. Our Capabilities & Services */}
         <ServicesSection onSelectServiceForProject={handleSelectServiceForLab} />

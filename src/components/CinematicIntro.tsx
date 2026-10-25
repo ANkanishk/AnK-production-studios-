@@ -1,19 +1,170 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { motion, AnimatePresence } from 'motion/react';
-import { detectSoftwareGl, setupStudioEnvironment } from '../utils/threeHelpers';
-import { sound } from '../utils/soundEffects';
+import gsap from 'gsap';
 import { Volume2, VolumeX, ArrowRight, Sparkles } from 'lucide-react';
+import { sound } from '../utils/soundEffects';
+import { detectSoftwareGl, setupStudioEnvironment } from '../utils/threeHelpers';
 
 interface CinematicIntroProps {
   onComplete: () => void;
 }
 
+// Custom GLSL Shaders for the converging 'AnK!' particle system
+const vertexShader = `
+  uniform float uTime;
+  uniform float uProgress;
+  attribute vec3 aTarget;
+  attribute float aSize;
+  attribute float aPhase;
+  attribute vec3 aColor;
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  void main() {
+    float p = clamp(uProgress, 0.0, 1.0);
+
+    // Swirling kinetic curl during convergence phase
+    float swirl = (1.0 - p) * sin(uTime * 2.5 + aPhase * 6.28) * 1.8;
+    vec3 currentPos = mix(position, aTarget, p);
+    currentPos.x += sin(currentPos.y * 1.5 + uTime) * swirl * 0.25;
+    currentPos.y += cos(currentPos.x * 1.5 + uTime) * swirl * 0.25;
+    currentPos.z += sin(uTime * 3.0 + aPhase) * (1.0 - p) * 0.8;
+
+    vec4 mvPosition = modelViewMatrix * vec4(currentPos, 1.0);
+    gl_PointSize = (aSize * (170.0 / -mvPosition.z)) * (0.8 + 0.3 * sin(uTime * 4.0 + aPhase));
+    gl_Position = projectionMatrix * mvPosition;
+
+    // Shift color between initial void state and converged brand state
+    vColor = mix(aColor, vec3(0.66, 0.33, 0.97), p * 0.4);
+    vAlpha = mix(0.4, 0.95, p);
+  }
+`;
+
+const fragmentShader = `
+  varying vec3 vColor;
+  varying float vAlpha;
+
+  void main() {
+    float dist = length(gl_PointCoord - vec2(0.5));
+    if (dist > 0.5) discard;
+    float core = 1.0 - smoothstep(0.0, 0.5, dist);
+    // Soft glowing falloff with hot white-violet center
+    vec3 finalColor = mix(vColor, vec3(1.0), pow(core, 3.0) * 0.6);
+    gl_FragColor = vec4(finalColor, core * vAlpha);
+  }
+`;
+
+// Helper to generate target sample points that outline 'AnK!' and the 16-point starburst
+function generateAnKPoints(count: number): { positions: Float32Array; targets: Float32Array; colors: Float32Array; sizes: Float32Array; phases: Float32Array } {
+  const positions = new Float32Array(count * 3);
+  const targets = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  const phases = new Float32Array(count);
+
+  const starburstPoints = 16;
+  const starOuterR = 3.2;
+  const starInnerR = 1.8;
+
+  for (let i = 0; i < count; i++) {
+    // 1. Initial Dispersed Cosmic Void Coordinates
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos((Math.random() * 2) - 1);
+    const rad = 6.0 + Math.random() * 8.0;
+
+    positions[i * 3] = rad * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = rad * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = rad * Math.cos(phi);
+
+    // 2. Target Coordinates: Form the AnK! letterforms + 16-point Starburst
+    const pType = i % 5;
+    let tx = 0;
+    let ty = 0;
+    let tz = (Math.random() - 0.5) * 0.2;
+
+    if (pType === 0) {
+      // 16-Point Starburst Perimeter
+      const sAngle = (i / count) * Math.PI * 2 * starburstPoints;
+      const isTip = (i % 2 === 0);
+      const r = isTip ? starOuterR : starInnerR;
+      tx = Math.cos(sAngle) * (r + (Math.random() - 0.5) * 0.2);
+      ty = Math.sin(sAngle) * (r + (Math.random() - 0.5) * 0.2);
+    } else if (pType === 1) {
+      // Letter 'A' (Left side)
+      const t = Math.random();
+      if (Math.random() > 0.4) {
+        // Legs of A
+        tx = -1.8 + (Math.random() > 0.5 ? 1 : -1) * (1.0 - t) * 0.6;
+        ty = -1.2 + t * 2.4;
+      } else {
+        // Crossbar of A
+        tx = -1.8 + (Math.random() - 0.5) * 0.7;
+        ty = -0.1;
+      }
+    } else if (pType === 2) {
+      // Letter 'n' (Center-left)
+      const t = Math.random();
+      if (Math.random() > 0.4) {
+        // Vertical stems
+        tx = -0.7 + (Math.random() > 0.5 ? 0.6 : 0);
+        ty = -1.1 + t * 1.8;
+      } else {
+        // Arch of n
+        const arc = t * Math.PI;
+        tx = -0.4 + Math.cos(arc) * 0.3;
+        ty = 0.5 + Math.sin(arc) * 0.25;
+      }
+    } else if (pType === 3) {
+      // Letter 'K' (Center-right)
+      const t = Math.random();
+      if (Math.random() > 0.5) {
+        // Stem of K
+        tx = 0.4;
+        ty = -1.2 + t * 2.4;
+      } else {
+        // Diagonals of K
+        const isUpper = Math.random() > 0.5;
+        tx = 0.4 + t * 0.8;
+        ty = isUpper ? 0.0 + t * 1.2 : 0.0 - t * 1.2;
+      }
+    } else {
+      // Exclamation Mark '!' (Right side with purple burst)
+      const isDot = Math.random() > 0.75;
+      if (isDot) {
+        tx = 1.6 + (Math.random() - 0.5) * 0.25;
+        ty = -1.0 + (Math.random() - 0.5) * 0.25;
+      } else {
+        const t = Math.random();
+        tx = 1.6 + (Math.random() - 0.5) * 0.2;
+        ty = -0.5 + t * 1.7;
+      }
+    }
+
+    targets[i * 3] = tx;
+    targets[i * 3 + 1] = ty;
+    targets[i * 3 + 2] = tz;
+
+    // Palette: Purple (#A855F7), Cyan (#06B6D4), Obsidian (#09090B), Gold (#F59E0B)
+    const isPurple = Math.random() > 0.4;
+    colors[i * 3] = isPurple ? 0.66 : 0.02;
+    colors[i * 3 + 1] = isPurple ? 0.33 : 0.71;
+    colors[i * 3 + 2] = isPurple ? 0.97 : 0.83;
+
+    sizes[i] = 0.12 + Math.random() * 0.2;
+    phases[i] = Math.random();
+  }
+
+  return { positions, targets, colors, sizes, phases };
+}
+
 export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [sceneStage, setSceneStage] = useState<number>(1);
-  const [progress, setProgress] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(sound.getMuted());
+  const uniformsRef = useRef({
+    uTime: { value: 0 },
+    uProgress: { value: 0 },
+  });
 
   useEffect(() => {
     const container = mountRef.current;
@@ -25,10 +176,9 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xFAFAFC);
-    scene.fog = new THREE.FogExp2(0xFAFAFC, 0.04);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, 13);
+    camera.position.set(0, 0, 11);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: !isSoftware,
@@ -38,261 +188,137 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
     renderer.setSize(width, height);
     renderer.setPixelRatio(isSoftware ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
     container.appendChild(renderer.domElement);
 
     setupStudioEnvironment(renderer, scene);
 
-    // Studio Lighting for Black/Purple/White AnK Comic Aesthetic
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
-    scene.add(ambientLight);
+    // 1. Create Shader-Based Particle System
+    const particleCount = isSoftware ? 800 : 2200;
+    const { positions, targets, colors, sizes, phases } = generateAnKPoints(particleCount);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.8);
-    keyLight.position.set(5, 7, 7);
-    scene.add(keyLight);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aTarget', new THREE.BufferAttribute(targets, 3));
+    geometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    geometry.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
 
-    const purpleKey = new THREE.PointLight(0xA855F7, 6.0, 18); // Electric purple light
-    purpleKey.position.set(-4, 3, 4);
-    scene.add(purpleKey);
-
-    const cyanRim = new THREE.PointLight(0x06B6D4, 3.5, 15);
-    cyanRim.position.set(4, -3, 3);
-    scene.add(cyanRim);
-
-    // Group for intro elements
-    const introGroup = new THREE.Group();
-    scene.add(introGroup);
-
-    // 1. Floating Particles & Ink Debris in 3D
-    const particleCount = isSoftware ? 60 : 180;
-    const particleGeo = new THREE.BufferGeometry();
-    const posArray = new Float32Array(particleCount * 3);
-    const colorArray = new Float32Array(particleCount * 3);
-
-    const palette = [
-      new THREE.Color(0x09090B), // Ink black
-      new THREE.Color(0x7C3AED), // Violet
-      new THREE.Color(0xA855F7), // Purple
-      new THREE.Color(0x06B6D4), // Cyan
-      new THREE.Color(0x18181B), // Charcoal
-    ];
-
-    for (let i = 0; i < particleCount; i++) {
-      posArray[i * 3] = (Math.random() - 0.5) * 26;
-      posArray[i * 3 + 1] = (Math.random() - 0.5) * 18;
-      posArray[i * 3 + 2] = (Math.random() - 0.5) * 18;
-
-      const col = palette[Math.floor(Math.random() * palette.length)];
-      colorArray[i * 3] = col.r;
-      colorArray[i * 3 + 1] = col.g;
-      colorArray[i * 3 + 2] = col.b;
-    }
-
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-    particleGeo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-
-    const particleMat = new THREE.PointsMaterial({
-      size: 0.16,
-      vertexColors: true,
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms: uniformsRef.current,
       transparent: true,
-      opacity: 0.8,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    introGroup.add(particles);
 
-    // 2. Centerpiece: 3D Procedural AnK! Comic Starburst & Logo
-    const starburstGroup = new THREE.Group();
-    starburstGroup.scale.set(0.001, 0.001, 0.001);
-    introGroup.add(starburstGroup);
+    const particleSystem = new THREE.Points(geometry, material);
+    scene.add(particleSystem);
 
-    // Procedural 16-point jagged comic burst shape
-    const starShape = new THREE.Shape();
-    const points = 16;
-    for (let i = 0; i < points * 2; i++) {
-      const angle = (i / (points * 2)) * Math.PI * 2;
-      const jitter = (i % 3 === 0 ? 0.35 : i % 2 === 0 ? -0.2 : 0.1);
-      const r = (i % 2 === 0 ? 2.5 + jitter : 1.5 + jitter * 0.5);
-      const x = Math.cos(angle) * r;
-      const y = Math.sin(angle) * r;
-      if (i === 0) starShape.moveTo(x, y);
-      else starShape.lineTo(x, y);
-    }
-    starShape.closePath();
-
-    const extrudeSettings = {
-      depth: 0.35,
-      bevelEnabled: true,
-      bevelSegments: 4,
-      bevelSize: 0.1,
-      bevelThickness: 0.1,
-    };
-    const starGeo = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
-    starGeo.center();
-
-    // Obsidian black metallic finish
-    const starMat = new THREE.MeshPhysicalMaterial({
-      color: 0x18181B,
-      metalness: 0.8,
-      roughness: 0.2,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.1,
-    });
-    const starMesh = new THREE.Mesh(starGeo, starMat);
-    starMesh.position.z = -0.2;
-    starburstGroup.add(starMesh);
-
-    // Purple Glowing Accent Wireframe Rim
-    const starRimMat = new THREE.MeshStandardMaterial({
-      color: 0x7C3AED,
-      emissive: 0x6D28D9,
-      emissiveIntensity: 0.5,
-      wireframe: true,
-    });
-    const starRim = new THREE.Mesh(starGeo, starRimMat);
-    starRim.scale.set(1.03, 1.03, 1.08);
-    starburstGroup.add(starRim);
-
-    // Front Emblem Texture Plate featuring the authentic user logo
+    // 2. Central 3D Physical Starburst Emblem for High-Impact Climax
     const textureLoader = new THREE.TextureLoader();
-    const logoTexture = textureLoader.load('/assets/aistudio/1792931151691_d855e005.png', () => {
-      renderer.render(scene, camera);
-    });
+    const logoTexture = textureLoader.load('/assets/aistudio/1792931151691_d855e005.png');
     logoTexture.colorSpace = THREE.SRGBColorSpace;
 
-    const emblemGeo = new THREE.CylinderGeometry(1.8, 1.8, 0.16, 48);
+    const emblemGeo = new THREE.CylinderGeometry(1.9, 1.9, 0.14, 48);
     emblemGeo.rotateX(Math.PI / 2);
-
-    const emblemMatFront = new THREE.MeshBasicMaterial({
+    const emblemMat = new THREE.MeshBasicMaterial({
       map: logoTexture,
       transparent: true,
     });
-    const emblemMatSide = new THREE.MeshPhysicalMaterial({
-      color: 0x7C3AED, // purple extruded side
-      metalness: 0.85,
-      roughness: 0.15,
+    const emblemMesh = new THREE.Mesh(emblemGeo, emblemMat);
+    emblemMesh.scale.set(0.001, 0.001, 0.001);
+    scene.add(emblemMesh);
+
+    // 3. GSAP Physics-Based Entrance Timeline
+    const tl = gsap.timeline({
+      onComplete: () => {
+        onComplete();
+      },
     });
-    const emblemMesh = new THREE.Mesh(emblemGeo, [emblemMatSide, emblemMatFront, emblemMatSide]);
-    emblemMesh.position.z = 0.25;
-    starburstGroup.add(emblemMesh);
 
-    // Kinetic Outer Orbit Rings
-    const ring1 = new THREE.Mesh(
-      new THREE.TorusGeometry(3.1, 0.05, 16, 64),
-      new THREE.MeshStandardMaterial({ color: 0xA855F7, metalness: 0.9, roughness: 0.1 })
+    // Step 1: Cosmic Void & Particle awakening (0 - 1.2s)
+    tl.to(
+      {},
+      {
+        duration: 1.2,
+        onStart: () => setSceneStage(1),
+      }
     );
-    ring1.rotation.x = Math.PI / 2.5;
-    starburstGroup.add(ring1);
 
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(3.6, 0.04, 16, 64),
-      new THREE.MeshStandardMaterial({ color: 0x06B6D4, metalness: 0.9, roughness: 0.1 })
+    // Step 2: High-impact physics convergence into 'AnK!' logo shape (1.2s - 3.2s)
+    tl.to(
+      uniformsRef.current.uProgress,
+      {
+        value: 1.0,
+        duration: 1.8,
+        ease: 'power4.inOut',
+        onStart: () => {
+          setSceneStage(2);
+          sound.playSweep();
+        },
+      },
+      '+=0.1'
     );
-    ring2.rotation.y = Math.PI / 3;
-    starburstGroup.add(ring2);
 
-    // Ink Droplet Splash Group
-    const splashes: THREE.Mesh[] = [];
-    const splashCount = isSoftware ? 20 : 45;
-    for (let i = 0; i < splashCount; i++) {
-      const radius = 0.05 + Math.random() * 0.14;
-      const splashGeo = new THREE.DodecahedronGeometry(radius, 1);
-      const isPurple = Math.random() > 0.7;
-      const splashMat = new THREE.MeshPhysicalMaterial({
-        color: isPurple ? 0xA855F7 : 0x09090B,
-        metalness: isPurple ? 0.7 : 0.2,
-        roughness: 0.1,
-        clearcoat: 1.0,
-      });
-      const splash = new THREE.Mesh(splashGeo, splashMat);
+    // Step 3: Explosive Starburst Crystallization (3.2s - 4.4s)
+    tl.to(
+      emblemMesh.scale,
+      {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        duration: 1.0,
+        ease: 'elastic.out(1.1, 0.4)',
+        onStart: () => {
+          setSceneStage(3);
+          sound.playChime();
+        },
+      },
+      '-=0.2'
+    );
 
-      const angle = (i / splashCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-      const dist = 2.4 + Math.random() * 1.8;
-      splash.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist, (Math.random() - 0.5) * 0.8);
-
-      starburstGroup.add(splash);
-      splashes.push(splash);
-    }
-
-    let animationFrameId: number;
-    const startTime = performance.now();
-    const totalDuration = 6500;
-
-    function tick(now: number) {
-      const elapsed = now - startTime;
-      const progressFraction = Math.min(elapsed / totalDuration, 1);
-      setProgress(Math.floor(progressFraction * 100));
-
-      if (elapsed < 1200) {
-        setSceneStage(1); // The White Void
-      } else if (elapsed < 2600) {
-        setSceneStage(2); // Objects & Particles in Motion
-      } else if (elapsed < 4200) {
-        setSceneStage(3); // 3D AnK Starburst Crystallization
-      } else if (elapsed < 5800) {
-        setSceneStage(4); // Brand Reveal
-      } else {
-        setSceneStage(5); // Transition into Homepage
+    // Step 4: Kinetic Brand Text Reveal (4.4s - 5.8s)
+    tl.to(
+      {},
+      {
+        duration: 1.4,
+        onStart: () => setSceneStage(4),
       }
+    );
 
-      // Rotate background particles
-      particles.rotation.y = now * 0.0003;
-      particles.rotation.x = now * 0.0002;
-
-      // Animate Starburst Assembly
-      if (elapsed >= 1200) {
-        const revealFactor = Math.min((elapsed - 1200) / 1600, 1);
-        const easeOutBack = (x: number) => {
-          const c1 = 1.70158;
-          const c3 = c1 + 1;
-          return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-        };
-        const currentScale = THREE.MathUtils.lerp(0.001, 1.0, easeOutBack(revealFactor));
-        starburstGroup.scale.set(currentScale, currentScale, currentScale);
-
-        starburstGroup.rotation.y = Math.sin(now * 0.0012) * 0.25;
-        starburstGroup.rotation.x = Math.cos(now * 0.0015) * 0.15;
-        ring1.rotation.z += 0.015;
-        ring2.rotation.z -= 0.02;
-
-        splashes.forEach((s, idx) => {
-          s.rotation.x += 0.01;
-          s.rotation.y += 0.015;
-          const wobble = Math.sin(now * 0.004 + idx) * 0.1;
-          s.position.x += wobble * 0.01;
-        });
+    // Step 5: Smooth Outward Push into Homepage (5.8s - 6.5s)
+    tl.to(
+      camera.position,
+      {
+        z: 4.5,
+        duration: 0.8,
+        ease: 'power2.in',
+        onStart: () => setSceneStage(5),
       }
+    );
+    tl.call(() => {
+      onComplete();
+    });
 
-      // Light Sweep
-      purpleKey.position.x = 6 * Math.sin(now * 0.002);
-      purpleKey.position.y = 4 * Math.cos(now * 0.0018);
+    // 4. Lossless Render Loop
+    let animId: number;
+    let clock = new THREE.Clock();
 
-      // Camera push in
-      if (elapsed < 5600) {
-        camera.position.z = 13 - (elapsed / 5600) * 3.5;
-      } else {
-        // Expand outward in stage 5
-        const exp = (elapsed - 5600) / 900;
-        camera.position.z = 9.5 - exp * 6;
-        starburstGroup.scale.multiplyScalar(1 + exp * 0.05);
-      }
+    const tick = () => {
+      const elapsed = clock.getElapsedTime();
+      uniformsRef.current.uTime.value = elapsed;
+
+      particleSystem.rotation.y = elapsed * 0.08;
+      emblemMesh.rotation.z = Math.sin(elapsed * 1.5) * 0.05;
 
       renderer.render(scene, camera);
+      animId = requestAnimationFrame(tick);
+    };
 
-      if (elapsed < totalDuration) {
-        animationFrameId = requestAnimationFrame(tick);
-      } else {
-        onComplete();
-      }
-    }
+    animId = requestAnimationFrame(tick);
 
-    animationFrameId = requestAnimationFrame(tick);
-
-    const soundTimer = setTimeout(() => {
-      sound.playChime();
-    }, 1500);
-
-    const resizeHandler = () => {
+    const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -300,12 +326,12 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
     };
-    window.addEventListener('resize', resizeHandler);
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
-      clearTimeout(soundTimer);
-      window.removeEventListener('resize', resizeHandler);
+      cancelAnimationFrame(animId);
+      tl.kill();
+      window.removeEventListener('resize', handleResize);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -357,89 +383,61 @@ export default function CinematicIntro({ onComplete }: CinematicIntroProps) {
         </div>
       </div>
 
-      {/* Center Cinematic Kinetic Text Overlay */}
+      {/* Center Kinetic Typography & Stage Description */}
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none px-6">
-        <AnimatePresence mode="wait">
-          {sceneStage <= 2 && (
-            <motion.div
-              key="intro-stage-1"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.5 }}
-              className="text-center"
-            >
-              <p className="text-xs uppercase tracking-[0.35em] font-mono text-purple-600 font-semibold mb-2">
-                Initiating 3D Studio Void
-              </p>
-              <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-                Where Ideas Erupt in 3D
-              </h2>
-            </motion.div>
-          )}
+        {sceneStage === 1 && (
+          <div className="text-center animate-in fade-in duration-500">
+            <p className="text-xs uppercase tracking-[0.35em] font-mono text-purple-600 font-semibold mb-2">
+              Shader Particle System Initializing
+            </p>
+            <h2 className="font-display text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              Cosmic Void in Motion
+            </h2>
+          </div>
+        )}
 
-          {sceneStage === 3 && (
-            <motion.div
-              key="intro-stage-3"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.6 }}
-              className="text-center"
-            >
-              <p className="text-xs uppercase tracking-[0.35em] font-mono text-indigo-600 font-bold mb-2">
-                3D Starburst Synthesis
-              </p>
-              <h2 className="font-display text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                Sculpting the Dimensional Identity
-              </h2>
-            </motion.div>
-          )}
+        {sceneStage === 2 && (
+          <div className="text-center animate-in fade-in zoom-in-95 duration-500">
+            <p className="text-xs uppercase tracking-[0.35em] font-mono text-indigo-600 font-bold mb-2">
+              GLSL Morphing Engine · GSAP Physics
+            </p>
+            <h2 className="font-display text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+              Particles Converging Into &apos;AnK!&apos;
+            </h2>
+          </div>
+        )}
 
-          {sceneStage >= 4 && (
-            <motion.div
-              key="intro-stage-4"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.15 }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center flex flex-col items-center"
-            >
-              <div className="flex items-center gap-2 text-xs font-mono font-semibold tracking-widest uppercase text-purple-600 mb-2">
-                <Sparkles className="w-4 h-4" />
-                <span>AnK Creative Mind</span>
-              </div>
+        {sceneStage >= 3 && (
+          <div className="text-center flex flex-col items-center animate-in fade-in duration-600">
+            <div className="flex items-center gap-2 text-xs font-mono font-semibold tracking-widest uppercase text-purple-600 mb-2">
+              <Sparkles className="w-4 h-4" />
+              <span>Dimensional Synthesis Complete</span>
+            </div>
 
-              <h1 className="font-display text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 mb-3">
-                <span className="bg-gradient-to-r from-slate-900 via-purple-700 to-indigo-600 bg-clip-text text-transparent">
-                  AnK Creative Mind
-                </span>
-              </h1>
+            <h1 className="font-display text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-slate-900 mb-3">
+              <span className="bg-gradient-to-r from-slate-900 via-purple-700 to-indigo-600 bg-clip-text text-transparent">
+                AnK Creative Mind
+              </span>
+            </h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25, duration: 0.5 }}
-                className="text-sm sm:text-lg text-slate-600 font-medium max-w-lg mx-auto"
-              >
-                Immersive 3D · Kinetic Motion · Unforgettable Experiences
-              </motion.p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <p className="text-sm sm:text-lg text-slate-600 font-medium max-w-lg mx-auto">
+              Immersive 3D · Kinetic Motion · Unforgettable Experiences
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Bottom Progress Bar */}
+      {/* Bottom Stage Progress Bar */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-full max-w-xs px-6">
         <div className="w-full bg-slate-200/80 rounded-full h-1 overflow-hidden shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 transition-all duration-100 ease-out"
-            style={{ width: `${progress}%` }}
+            className="h-full bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 transition-all duration-300 ease-out"
+            style={{ width: `${(sceneStage / 5) * 100}%` }}
           />
         </div>
         <div className="flex items-center justify-between w-full text-[11px] font-mono text-slate-500 uppercase tracking-wider">
-          <span>Scene 0{sceneStage}</span>
-          <span>{progress}% Loaded</span>
+          <span>GLSL Shader Stage 0{sceneStage}</span>
+          <span>GSAP Choreography</span>
         </div>
       </div>
     </div>
