@@ -14,6 +14,7 @@ import {
   Zap
 } from 'lucide-react';
 import { sound } from '../utils/soundEffects';
+import Service3DCanvas from './Service3DCanvas';
 
 interface ServiceItem {
   id: string;
@@ -159,24 +160,32 @@ export default function ServicesSection({ onSelectServiceForProject }: ServicesS
                 key={service.id}
                 onClick={() => openServiceModal(service)}
                 onMouseEnter={() => sound.playHover()}
-                className="group relative bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-indigo-200/90 transition-all duration-300 cursor-pointer flex flex-col justify-between hover:-translate-y-1"
+                className="group relative bg-white rounded-3xl p-7 border border-slate-200/80 shadow-xs hover:shadow-2xl hover:border-purple-200/90 transition-all duration-300 cursor-pointer flex flex-col justify-between hover:-translate-y-1.5"
               >
                 <div>
                   {/* Card Header with editorial number and icon */}
-                  <div className="flex items-center justify-between mb-8">
-                    <span className="font-mono text-xs font-semibold text-slate-400 group-hover:text-indigo-600 transition-colors">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-mono text-xs font-semibold text-slate-400 group-hover:text-purple-600 transition-colors">
                       {service.num}.
                     </span>
                     <div
-                      className="w-11 h-11 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-xs"
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-xs"
                       style={{ backgroundColor: `${service.accentColor}15`, color: service.accentColor }}
                     >
                       <Icon className="w-5 h-5" />
                     </div>
                   </div>
 
+                  {/* Individual 3D Procedural Artwork Viewport */}
+                  <div className="relative mb-5 group-hover:scale-[1.02] transition-transform duration-300">
+                    <Service3DCanvas serviceId={service.id} accentColor={service.accentColor} className="w-full h-44" />
+                    <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-white/85 backdrop-blur-xs text-[10px] font-mono text-slate-600 border border-slate-200/60 shadow-xs pointer-events-none">
+                      3D Interactive
+                    </div>
+                  </div>
+
                   {/* Title & Tagline */}
-                  <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-900 mb-3 group-hover:text-indigo-600 transition-colors">
+                  <h3 className="font-display text-xl font-bold text-slate-900 mb-2 group-hover:text-purple-600 transition-colors">
                     {service.title}
                   </h3>
                   <p className="text-sm text-slate-600 leading-relaxed mb-6">
@@ -185,14 +194,14 @@ export default function ServicesSection({ onSelectServiceForProject }: ServicesS
                 </div>
 
                 {/* Card Footer: Unboxed metadata + click cue */}
-                <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-xs">
+                <div className="pt-5 border-t border-slate-100 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5 text-slate-500 font-mono">
-                    <Compass className="w-3.5 h-3.5 text-indigo-500" />
+                    <Compass className="w-3.5 h-3.5 text-purple-500" />
                     <span>{service.estimatedTimeline}</span>
                   </div>
 
-                  <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
-                    <span>Inspect</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">
+                    <span>Inspect 3D</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
@@ -224,6 +233,18 @@ export default function ServicesSection({ onSelectServiceForProject }: ServicesS
             <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 mb-3">
               {selectedService.title}
             </h3>
+
+            {/* Modal Interactive 3D Model Display */}
+            <div className="mb-6 relative">
+              <Service3DCanvas
+                serviceId={selectedService.id}
+                accentColor={selectedService.accentColor}
+                className="w-full h-52 sm:h-64 shadow-inner"
+              />
+              <div className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-white/90 backdrop-blur-xs text-[11px] font-mono text-purple-700 border border-purple-200/80 shadow-xs pointer-events-none">
+                Interactive 3D Asset · Mouse Responsive
+              </div>
+            </div>
 
             <p className="text-base text-slate-600 leading-relaxed mb-6">
               {selectedService.description}

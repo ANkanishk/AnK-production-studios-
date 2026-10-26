@@ -11,13 +11,20 @@ import RobotMascotSection from './components/RobotMascotSection';
 import ProjectLab from './components/ProjectLab';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
+import AuthModal3D from './components/AuthModal3D';
+import CustomCursor from './components/CustomCursor';
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState<boolean>(true);
+  const [showIntro, setShowIntro] = useState<boolean>(() => {
+    return !sessionStorage.getItem('ank_intro_viewed');
+  });
   const [selectedServiceForLab, setSelectedServiceForLab] = useState<string | undefined>(undefined);
   const [initialIdeaForLab, setInitialIdeaForLab] = useState<string | undefined>(undefined);
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
 
   const handleCompleteIntro = () => {
+    sessionStorage.setItem('ank_intro_viewed', 'true');
     setShowIntro(false);
   };
 
@@ -51,6 +58,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFC] text-slate-900 selection:bg-purple-500/20 selection:text-purple-700">
+      {/* Precision Trailing Custom Cursor */}
+      <CustomCursor />
+
       {/* 1. Cinematic Website Opening with 3D AnK Starburst */}
       {showIntro && <CinematicIntro onComplete={handleCompleteIntro} />}
 
@@ -61,6 +71,18 @@ export default function App() {
       <Navbar
         onReplayIntro={handleReplayIntro}
         onOpenProjectLab={() => handleOpenProjectLab()}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        currentUser={currentUser}
+        onSignOut={() => setCurrentUser(null)}
+      />
+
+      {/* Dedicated 3D Authentication & Client Portal Modal */}
+      <AuthModal3D
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+        }}
       />
 
       <main>

@@ -36,16 +36,15 @@ export default function HeroSection({
 
             {/* Kinetic Typography Headline matching logo's punchy comic 3D energy */}
             <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.04] mb-6">
-              WE TURN{' '}
               <span className="bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 bg-clip-text text-transparent hover:brightness-110 transition-all cursor-default">
-                IMAGINATION
+                IMAGINATION,
               </span>{' '}
-              INTO EXPERIENCE.
+              MADE REAL.
             </h1>
 
             {/* Supporting Copy */}
             <p className="text-base sm:text-xl text-slate-600 font-normal leading-relaxed mb-8 max-w-xl">
-              Creative thinking. Immersive 3D design. Digital experiences engineered to make your brand identity unforgettable.
+              We create bold visual identities, immersive 3D worlds, and unforgettable digital experiences.
             </p>
 
             {/* Action Buttons */}
